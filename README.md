@@ -13,7 +13,7 @@ You will also need a list of the fastq files that you would like to map back to 
     sample2.fastq
     sample3.fastq
 
-Then we need to fix the names of the contigs to ensure that they are unique among all contigs in your collection of genomes.  like thus
+Then we need to fix the names of the contigs to ensure that they are unique among all contigs in your collection of genomes.  like thus. but there are many other ways to do this.  
 
     for i in `cat genomes.txt`; do sed -i "s/c_/${i}_c/g" $i.fa; done
     
@@ -51,6 +51,35 @@ Then you will want to filter the sam files and convert them to bam files, sort, 
     for i in `cat samples.txt`; do samtools index "$i"-sorted.bam;done
     for i in `cat samples.txt`; do samtools idxstats "$i"-sorted.bam > "$i"-contig-coverages.txt; done
     
-Ok.. Now you have the +
+#### This is another iteration of the same analysis.. with a few exceptions.  I did not use the --very-sensitive flag in bowtie2 or the -q flag. These flags were a little too stringent. I belive this because when mapping to my collection of non-redundant MAGs, some of them did not rec coverage or there was very low coverage due to the inability to map properly to more than one location and the likely presence of naturally occurring SNPs in the population. 
+
+##### 1. Calculate ANI
+    clusterize anvi-compute-genome-similarity -e external_genomes.txt -o x_ANI -T 40
+
+##### 2. Dereplicate the genomes based on the ANI calculation
+    clusterize anvi-dereplicate-genomes --ani-dir x_ANI/ -o x_ANI_dereplication --program pyANI --method ANIb --use-full-percent-identity --min-full-percent-identity 0.90 --similarity-threshold 0.95
+
+##### 3. Collect the names of the unique mags, copy the fasta files to a new location and then fix the deflines - this step will be very personalized based on the names of you fasta files, but you can probably make the append-name-to-fasta-deflines.py work for you 
+    cut -f 3 CLUSTER_REPORT.txt > ../x_unique_mags.tx
+
+    for i in `cat x_unique_mags.txt`; do cp $i'.fa' x_ANI_dereplication; done
+    for i in `cat ../x_unique_mags.txt`; do python ~/scripts/append-name-to-fasta-deflines.py $i'.fa' $i'-modified.fa'; done
+
+    cat *-modified.fa > x_all-uniqe-concatenated.fa
+    bowtie2-build x_all-uniqe-concatenated.fa x_all-uniqe-concatenated
+    for i in `cat /workspace/jvineis/BOWEN_METAGENOMICS/samples.txt`; do clusterize bowtie2 -f -x x_all-uniqe-concatenated -U '/workspace/jvineis/BOWEN_METAGENOMICS/'$i'.gz' -S $i'.sam'; done
+
+    for i in `cat /workspace/jvineis/BOWEN_METAGENOMICS/samples.txt`; do clusterize samtools view $i'.sam' -b -o $i'.bam' -F 4 ;done
+
+    for i in `cat /workspace/jvineis/BOWEN_METAGENOMICS/samples.txt`; do clusterize samtools sort $i'.bam' -o $i'-sorted.bam'; done
+
+    for i in `cat /workspace/jvineis/BOWEN_METAGENOMICS/samples.txt`; do clusterize samtools index $i'-sorted.bam'; done
+
+    for i in `cat /workspace/jvineis/BOWEN_METAGENOMICS/samples.txt`; do samtools idxstats $i'-sorted.bam' > $i'-contig-coverages.txt';done
+    cut -f 1 N2DPOST-ABM12_MERGED-contig-coverages.txt > names.tx
+    cut -f 1 N2DPOST-ABM12_MERGED-contig-coverages.txt | cut -f 1,2 -d "-" > mags
+    paste mags names.tx > x_MAGS-to-splits.txt
+
+    for i in `cat /workspace/jvineis/BOWEN_METAGENOMICS/samples.txt`; do python ~/scripts/calculate-mag-coverage.py -cov $i'-contig-coverages.txt' -mags x_MAGS-to-splits.txt -out $i'-mag-coverages.txt';done
     
 
