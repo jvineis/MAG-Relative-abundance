@@ -51,7 +51,7 @@ Then you will want to filter the sam files and convert them to bam files, sort, 
     for i in `cat samples.txt`; do samtools index "$i"-sorted.bam;done
     for i in `cat samples.txt`; do samtools idxstats "$i"-sorted.bam > "$i"-contig-coverages.txt; done
     
-#### This is another iteration of the same analysis.. with a few exceptions.  I did not use the --very-sensitive flag in bowtie2 or the -q flag. These flags were a little too stringent. I belive this because when mapping to my collection of non-redundant MAGs, some of them did not rec coverage or there was very low coverage due to the inability to map properly to more than one location and the likely presence of naturally occurring SNPs in the population. 
+#### This is another iteration of the same analysis.. with a few exceptions.  I did not use the --very-sensitive flag in bowtie2 or the -q flag. These flags were a little too stringent. I belive this because when mapping to my collection of non-redundant MAGs, some of them did not rec coverage or there was very low coverage due to the inability to map properly to more than one location and the likely presence of naturally occurring SNPs in the population. I used anvio v 6.1 for some of this
 
 ##### 1. Calculate ANI - assumes that you have already constructed anvio contig dbs for each of your MAGs and you are using an external_genomes.txt file. 
     clusterize anvi-compute-genome-similarity -e external_genomes.txt -o x_ANI -T 40
