@@ -124,7 +124,7 @@ Then you will want to filter the sam files and convert them to bam files, sort, 
     #SBATCH --array=1-34
     
     READS=$(sed -n "$SLURM_ARRAY_TASK_ID"p x_sequence-samples.txt)
-    bowtie2 -f -x x_all-uniqe-concatenated -U '/scratch/vineis.j/FTR/'${READS}'-MERGED.gz' -S ${READS}'.sam'
+    bowtie2 -f -x x_all-uniqe-concatenated -U '/scratch/vineis.j/FTR/'${READS}'_MERGED.gz' -S ${READS}'.sam'
     
 ###### and if you call it x_map-to-unique-mags.shx, you can run it like this
 
