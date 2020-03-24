@@ -60,7 +60,7 @@ Then you will want to filter the sam files and convert them to bam files, sort, 
     clusterize anvi-dereplicate-genomes --ani-dir x_ANI/ -o x_ANI_dereplication --program pyANI --method ANIb --use-full-percent-identity --min-full-percent-identity 0.90 --similarity-threshold 0.95
 
 ##### 3. Collect the names of the unique mags, copy the fasta files to a new location and then fix the deflines - this step will be very personalized based on the names of you fasta files, but you can probably make the append-name-to-fasta-deflines.py work for you 
-    cut -f 3 CLUSTER_REPORT.txt > ../x_unique_mags.tx
+    cut -f 3 CLUSTER_REPORT.txt > ../x_unique_mags.txt
     for i in `cat x_unique_mags.txt`; do cp $i'.fa' x_ANI_dereplication; done
     for i in `cat ../x_unique_mags.txt`; do python ~/scripts/append-name-to-fasta-deflines.py $i'.fa' $i'-modified.fa'; done
     
@@ -86,3 +86,67 @@ Then you will want to filter the sam files and convert them to bam files, sort, 
 ##### 9.  At this point you are pretty close to wrapping this up.  I paste together all of the *mag-coverages.txt* files and then fix things up in excel (I know thats lame).  One handy way to correct your relative abundance for the number of reads per sample and the size of the MAG
 
     RelAbund = Reads in sample/Minimum reads in collection * (reads mapped*average read length)/genome-size
+
+#### This is another iteration of the same analysis.. except run on discovery.  I used the same dereplication output as above.  working directory at the time of analysis was here /scratch/vineis.j/FTR-MAGs-DEREP/x_ANI_dereplication_rerun
+
+##### 1. Get the list of unique genomes and make a list of unique contigs to map to.. Make sure that you get all of the bins! Sometimes the cp function WILL MISS A MAG!!!
+    
+    cut -f 3 CLUSTER_REPORT.txt > x_unique_mags.txt
+    for i in `cat x_unique_mags.txt`; do cp ../$i'.fa' .
+    for i in `cat x_unique_mags.txt`; do python ~/scripts/append-name-to-fasta-deflines.py $i'.fa' $i'-modified.fa'; done
+    cat *-modified.fa > x_all-uniqe-concatenated.fa
+    
+##### 2. Build the bowtie2 database by creating a bash script that looks like this.
+
+    #!/bin/bash
+    #
+    #SBATCH --nodes=1
+    #SBATCH --tasks-per-node=1
+    #SBATCH --time=1:00:00
+    #SBATCH --mem=50Gb
+    #SBATCH --partition=short
+    
+    bowtie2build x_all-uniqe-concatenated.fa x_all-uniqe-concatenated
+    
+##### 3. Now you need to map each of the fasta/fastq files to the the a_all-unique-concatenated.fa.  Here is the script that can do that below.  But first you need to create a list of the names of the fasta/fastq files and put it in the directory. Both steps are outlined below. 
+
+    ls /scratch/vineis.j/FTR/*MERGED.gz | sed 's/_MERGED\.gz//g' | cut -f 5 -d "/" > x_sequence-samples.txt
+
+###### and the sbatch script looks like this
+ 
+    #!/bin/bash
+    #
+    #SBATCH --nodes=1
+    #SBATCH --tasks-per-node=2
+    #SBATCH --time=1:00:00
+    #SBATCH --mem=80Gb
+    #SBATCH --partition=express
+    #SBATCH --array=1-34
+    
+    READS=$(sed -n "$SLURM_ARRAY_TASK_ID"p x_sequence-samples.txt)
+    bowtie2 -f -x x_all-uniqe-concatenated -U '/scratch/vineis.j/FTR/'${READS}'-MERGED.gz' -S ${READS}'.sam'
+    
+###### and if you call it x_map-to-unique-mags.shx, you can run it like this
+
+    sbatch x_map-to-unique-mags.shx
+    
+##### 4. Use the sbatch script to run samtools functions that will generate the coverage of each contig in the x_all-unique-concatenated.fa
+
+    #!/bin/bash
+    #
+    #SBATCH --nodes=1
+    #SBATCH --tasks-per-node=2
+    #SBATCH --time=1:00:00
+    #SBATCH --mem=80Gb
+    #SBATCH --partition=express
+    #SBATCH --array=1-34
+    
+    READS=$(sed -n "$SLURM_ARRAY_TASK_ID"p x_sequence-samples.txt)
+    samtools view ${READS}'.sam' -b -o ${READS}'.bam' -F 4 
+    samtools sort ${READS}'.bam' -o ${READS}'-sorted.bam'
+    samtools index ${READS}'-sorted.bam'
+    
+    
+
+
+
